@@ -1,4 +1,6 @@
-﻿# Portable-Maker.ps1
+﻿Add-Type -AssemblyName System.Windows.Forms
+
+# Portable-Maker.ps1
 $Name = "Portable-Fixer"
 $Version = "0.1.0"
 
@@ -289,15 +291,13 @@ function Read-FolderPath {
         [string]$Prompt      = "Wählen Sie einen Ordner aus:",
         [string]$PromptColor = $ReadColor,
         [int]$PromptWidth    = $ReadPromptWidth,
-        [int]$PromptLeft     = 2,
-
-        [switch]$UIBrowse
+        [int]$PromptLeft     = 2
     )
-    if ( $UIBrowse ) {
-        $folderPath = Show-FolderBrowserDialog -Description $Prompt
-        if ( $folderPath ) { return $folderPath }
-    }
     $Prompt = (" " * $PromptLeft) + $Prompt
+    $folderPath = Show-FolderBrowserDialog -Description $Prompt
+    if ( $folderPath ) { return $folderPath }
+
+    # Fallback: Manuelle Eingabe, solange bis ein gültiger Ordnerpfad eingegeben wird
     do {
         Write-Host $Prompt.PadRight($PromptWidth) -ForegroundColor $PromptColor -NoNewline
         $UserInput = (Read-Host).Trim()
@@ -329,6 +329,29 @@ function Read-FilePath {
     if ( $JustFileName ) { $file = [System.IO.Path]::GetFileName($file) } 
 
     $file
+}
+function Get-File {
+    param(
+        [string]$Title = "Wählen Sie eine Datei aus",
+        [string]$InitialDirectory, # Optionaler Startordner für den Datei-Auswahldialog
+
+        [switch]$FullName,
+        [switch]$Name
+    )
+    # Datei-Auswahldialog erstellen
+    $fileDialog = New-Object System.Windows.Forms.OpenFileDialog
+    $fileDialog.Title = $Title
+    $fileDialog.Filter = "Alle Dateien (*.*)|*.*"
+    if ( $InitialDirectory ) { if (Test-Path $InitialDirectory -PathType Container) { $fileDialog.InitialDirectory = $InitialDirectory } }
+
+    # Dialog anzeigen und ausgewählten Dateipfad zurückgeben
+    try { if ( $fileDialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK ) { return $null } }
+    finally { $fileDialog.Dispose() }
+    
+    # Rückgabewert basierend auf den Schaltern
+    if ( $FullName ) { return $fileDialog.FileName } 
+    elseif ( $Name ) { return [System.IO.Path]::GetFileName($fileDialog.FileName) } 
+    else { return Get-Item $fileDialog.FileName }
 }
 
 function Write-Line {
@@ -378,57 +401,61 @@ function Write-Results {
 
 # HEADER & USERINPUT ###############################################################################
 $Context = [ordered]@{}
-Set-Header -Text "$Name v$Version"
 
-Write-Host "  1) Portable Anwendung erstellen" -ForegroundColor Yellow
-Write-Host "  2) Desktop.ini für bestehenden Ordner erstellen" -ForegroundColor Yellow
-$answer = Read-KeyString -Prompt "Wählen Sie eine Option (1/2):" -ValidKeys @('1','2')
-Write-Line -Padding
-switch ($answer) {
-    '1' { 
-        # Anwendungsinformationen abfragen
-        $Context.AppName         = Get-InputValue "AppName" { Read-CleanString -Prompt "Anwendungsname:" -SkipSpaces }
-        $Context.AppID           = Get-InputValue "AppID" { Read-CleanString -Prompt "Anwendungs-ID:" -Default $Context.AppName }
-        $Context.sourcePath      = Get-InputValue "SourcePath" { Read-FolderPath  -Prompt "Programmordner:" -UIBrowse }
-        $Context.AppNameExe      = Get-InputValue "AppExe" { Read-FilePath    -Prompt "Programmdatei:" -JustFileName -Location $Context.sourcePath }
-        $Context.destinationPath = Get-InputValue "DestinationPath" { Read-FolderPath  -Prompt "Zielordner:" }
-        $Context.sourceSplashFile= Get-InputValue "SplashImage" { Read-FilePath    -Prompt "Splash-Bild:" }
+while($true){
+    Set-Header -Text "$Name v$Version"
 
-        # Bestätigung vor dem Starten
-        if( $DebugMode -and -not (Read-KeyString -Prompt "Test starten? (Y/N)" -PromptColor "Gray" -YesNo) ){ 
-            Write-Host "  Vorgang wurde Abgebrochen!" -ForegroundColor Red
-            Start-Sleep -Seconds 3
-            exit
-        }
+    Write-Host "  1) Portable Anwendung erstellen" -ForegroundColor Yellow
+    Write-Host "  2) Desktop.ini erstellen/bearbeiten" -ForegroundColor Yellow
+    Write-Host
+    $answer = Read-KeyString -Prompt "Wählen Sie eine Option (1/2):" -ValidKeys @('1','2')
+    Write-Line -Padding
+    switch ($answer) {
+        '1' { 
+            # Anwendungsinformationen abfragen
+            $Context.AppName         = Get-InputValue "AppName" { Read-CleanString -Prompt "Anwendungsname:" -SkipSpaces }
+            $Context.AppID           = Get-InputValue "AppID" { Read-CleanString -Prompt "Anwendungs-ID:" -Default $Context.AppName }
+            $Context.sourcePath      = Get-InputValue "SourcePath" { Read-FolderPath  -Prompt "Programmordner:" -UIBrowse }
+            $Context.AppNameExe      = Get-InputValue "AppExe" { Read-FilePath    -Prompt "Programmdatei:" -JustFileName -Location $Context.sourcePath }
+            $Context.destinationPath = Get-InputValue "DestinationPath" { Read-FolderPath  -Prompt "Zielordner:" }
+            $Context.sourceSplashFile= Get-InputValue "SplashImage" { Read-FilePath    -Prompt "Splash-Bild:" }
 
-        # Portable App erstellen
-        Set-PortableApp -Context $Context
-
-        # Abschlussmeldung
-        Write-Host "`n  Fertig!" -ForegroundColor Green
-        Write-Host "  Die portable Anwendung wurde erstellt unter:"
-        Write-Host "   "$rootPath -ForegroundColor Yellow
-
-        # PortableApps.com Launcher Ordner
-        Write-Host "`n  Suche nach PortableApps.com Launcher Generator..." -ForegroundColor Yellow -NoNewline
-        if(Test-Path (Join-Path -Path $Context.destinationPath -ChildPath "PortableApps.comLauncher/PortableApps.comLauncherGenerator.exe")){
-            Write-Host " Gefunden!" -ForegroundColor Green
-            if(Read-KeyString -Prompt "Möchten Sie den Launcher Generator jetzt starten? (Y/N)" -PromptColor "Gray" -YesNo){
-                Start-Process -FilePath (Join-Path -Path $Context.destinationPath -ChildPath "PortableApps.comLauncher/PortableApps.comLauncherGenerator.exe")
+            # Bestätigung vor dem Starten
+            if( $DebugMode -and -not (Read-KeyString -Prompt "Test starten? (Y/N)" -PromptColor "Gray" -YesNo) ){ 
+                Write-Host "  Vorgang wurde Abgebrochen!" -ForegroundColor Red
+                Start-Sleep -Seconds 3
+                exit
             }
-        } else { Write-Host " Nicht gefunden!" -ForegroundColor Red }
-        Pause
-     }
-    '2' { 
-        $folderPath = Read-FolderPath -Prompt "Ordnerpfad für desktop.ini:" -UIBrowse
-        $iconFile   = Read-FilePath -Prompt "Pfad zur EXE-Datei für das Icon:"
-        Write-Line -Padding
-        Write-Results "Erstelle:" "desktop.ini" -Colors @("Red","Yellow")
-        New-DesktopIni -IconFile $iconFile -ExportPath $folderPath
-        Write-Host "`n  Fertig!" -ForegroundColor Green
-        Write-Host "  Die desktop.ini wurde erstellt unter:"
-        Write-Host "   "$folderPath -ForegroundColor Yellow
-        Pause > $null
-     }
-    Default {}
+
+            # Portable App erstellen
+            Set-PortableApp -Context $Context
+
+            # Abschlussmeldung
+            Write-Host "`n  Fertig!" -ForegroundColor Green
+            Write-Host "  Die portable Anwendung wurde erstellt unter:"
+            Write-Host "   "$rootPath -ForegroundColor Yellow
+
+            # PortableApps.com Launcher Ordner
+            Write-Host "`n  Suche nach PortableApps.com Launcher Generator..." -ForegroundColor Yellow -NoNewline
+            if(Test-Path (Join-Path -Path $Context.destinationPath -ChildPath "PortableApps.comLauncher/PortableApps.comLauncherGenerator.exe")){
+                Write-Host " Gefunden!" -ForegroundColor Green
+                if(Read-KeyString -Prompt "Möchten Sie den Launcher Generator jetzt starten? (Y/N)" -PromptColor "Gray" -YesNo){
+                    Start-Process -FilePath (Join-Path -Path $Context.destinationPath -ChildPath "PortableApps.comLauncher/PortableApps.comLauncherGenerator.exe")
+                }
+            } else { Write-Host " Nicht gefunden!" -ForegroundColor Red }
+            Pause
+        }
+        '2' { 
+            $folderPath = Read-FolderPath -Prompt "Ordnerpfad für desktop.ini:"
+            $iconFile   = Read-FilePath -Prompt "Pfad zur EXE-Datei für das Icon:"
+            Write-Line -Padding
+            Write-Results "Erstelle:" "desktop.ini" -Colors @("Red","Yellow")
+            New-DesktopIni -IconFile $iconFile -ExportPath $folderPath
+            Write-Host "`n  Fertig!" -ForegroundColor Green
+            Write-Host "  Die desktop.ini wurde erstellt unter:"
+            Write-Host "   "$folderPath -ForegroundColor Yellow
+            Pause > $null
+        }
+        Default {}
+    }
 }
