@@ -89,6 +89,7 @@ function Set-Header {
         [int]$Width = $WindowWidth,
         [string]$ForegroundColor = "DarkRed"
     )
+    Clear-Host
     Write-Host ""( "=" * $Width ) -ForegroundColor $ForegroundColor
     Write-Host ($Text.PadLeft(($Width + $Text.Length) / 2).PadRight($Width))
     if( $DebugMode ){ Write-Host ("DEBUG MODE ACTIVE".PadLeft(($Width + 17) / 2).PadRight($Width)) -ForegroundColor Yellow }
