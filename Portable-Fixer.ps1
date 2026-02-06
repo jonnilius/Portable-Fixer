@@ -447,14 +447,15 @@ while($true){
         }
         '2' { 
             $folderPath = Read-FolderPath -Prompt "Ordnerpfad für desktop.ini:"
-            $iconFile   = Read-FilePath -Prompt "Pfad zur EXE-Datei für das Icon:"
+            $iconFile   = Get-File -Title "Pfad zur EXE-Datei für das Icon:" -FullName
             Write-Line -Padding
             Write-Results "Erstelle:" "desktop.ini" -Colors @("Red","Yellow")
             New-DesktopIni -IconFile $iconFile -ExportPath $folderPath
             Write-Host "`n  Fertig!" -ForegroundColor Green
             Write-Host "  Die desktop.ini wurde erstellt unter:"
             Write-Host "   "$folderPath -ForegroundColor Yellow
-            Pause > $null
+            Write-Host "`n`n"
+            Pause -Silent > $null
         }
         Default {}
     }
