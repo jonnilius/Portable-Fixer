@@ -145,6 +145,8 @@ function Set-PortableApp {
     # Splash-Bild kopieren
     Write-Results "Kopiere:" "$($Context.AppID)\App\AppInfo\Launcher\Splash.jpg " -Colors @("Red","Yellow")
     Copy-Item -Path $Context.sourceSplashFile -Destination (Join-Path -Path $AppLauncherPath -ChildPath "Splash.jpg") -Force
+
+    $Context
 }
 
 function New-AppInfoIni {
@@ -324,7 +326,8 @@ function Get-Folder {
         [string]$Description = "Wählen Sie einen Ordner aus:",
         # Rückgabewerte:
         [switch]$FullName,
-        [switch]$Name
+        [switch]$Name,
+        [switch]$WriteSelectedPath
     )
     # Ordner-Auswahldialog erstellen
     $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
@@ -333,22 +336,30 @@ function Get-Folder {
     # Ordner-Auswahldialog anzeigen
     $dialogResult = $folderBrowser.ShowDialog()
     if ( $dialogResult -ne [System.Windows.Forms.DialogResult]::OK ) { return $null } # Auswahl wurde abgebrochen, null zurückgeben
+    if ( $WriteSelectedPath ) { Write-Host $folderBrowser.SelectedPath }
 
     # Rückgabewert basierend auf den Schaltern
     if ( $FullName ) { return $folderBrowser.SelectedPath } # [string] mit dem vollständigen Pfad
     elseif ( $Name ) { return [System.IO.Path]::GetFileName($folderBrowser.SelectedPath) } # [string] mit dem Ordnernamen
     else { return Get-Item $folderBrowser.SelectedPath } # [System.IO.DirectoryInfo] Objekt
 }
+function Get-Key {
+    param(
+        [string]$KeyName = "Enter"
+    )
+    do { $key = [System.Console]::ReadKey($true) }
+    until ( $key.Key -eq $KeyName )
+}
 
 function Write-Text {
     param (
         [string]$Text,
         [System.ConsoleColor]$ForegroundColor = "White",
+        [switch]$NoNewline,
         # Layout-Parameter
         [ValidateSet("Left","Center","Right")]
-        [string]$Alignment = "Left",
-        [int[]]$Padding = @(2,0,0,0), # Padding: [Left, Top, Right, Bottom]
-        [switch]$NoNewline
+        [string]$Alignment,
+        [int[]]$Padding = @(2,0,0,0) # Padding: [Left, Top, Right, Bottom]
     )
     $Text = $Text.Trim()
 
@@ -361,10 +372,14 @@ function Write-Text {
     $innerWidth = $Width - $PadLeft - $PadRight
 
     # Text ausrichten
-    switch ( $Alignment ) {
-        "Left"   { $Text = ( " " * $PadLeft) + $Text.PadRight($innerWidth) + ( " " * $PadRight) }
-        "Center" { $Text = ( " " * $PadLeft) + $Text.PadLeft( ($innerWidth + $Text.Length) / 2 ).PadRight($innerWidth) + ( " " * $PadRight) }
-        "Right"  { $Text = ( " " * $PadLeft) + $Text.PadLeft($innerWidth) + ( " " * $PadRight) }
+    if ( $Alignment ) {
+        switch ( $Alignment ) {
+            "Left"   { $Text = ( " " * $PadLeft) + $Text.PadRight($innerWidth) + ( " " * $PadRight) }
+            "Center" { $Text = ( " " * $PadLeft) + $Text.PadLeft( ($innerWidth + $Text.Length) / 2 ).PadRight($innerWidth) + ( " " * $PadRight) }
+            "Right"  { $Text = ( " " * $PadLeft) + $Text.PadLeft($innerWidth) + ( " " * $PadRight) }
+        }
+    } else {
+        $Text = ( " " * $PadLeft) + $Text + ( " " * $PadRight)
     }
 
     # Padding Top/Bottom
@@ -424,6 +439,37 @@ function Write-Results {
     if ( $ColorRight ) { $Colors[1] = $ColorRight }
     Write-Host $TextRight -ForegroundColor $Colors[1]
 }
+function Get-ApplicationInfo {
+    param ( [hashtable]$Context )
+    
+    # Programmordner abfragen (Quellordner)
+    Write-Text "Wählen Sie den Programmordner aus:" DarkCyan -NoNewline
+    $Context.sourcePath = Get-Folder -Description "Programmordner:" -FullName
+    Write-Text $Context.sourcePath -Padding @(1,0,0,0)
+
+    # Startdatei (EXE) auswählen
+    Write-Text "Startdatei (EXE) auswählen:" DarkRed -NoNewline
+    $Context.AppNameExe = Get-File -Title "Startdatei (EXE) auswählen:" -InitialDirectory $Context.sourcePath -Name
+    Write-Text $Context.AppNameExe -Padding @(1,0,0,0)
+    
+    # Speicherort für die portable Anwendung auswählen (Zielordner)
+    Write-Text "Zielordner für die portable Anwendung auswählen:" DarkRed -NoNewline
+    $Context.destinationPath = Get-Folder -Description "Zielordner:" -FullName
+    Write-Text $Context.destinationPath -Padding @(1,0,0,1)
+
+    # Splash-Bild auswählen
+    Write-Text "Splash-Bild auswählen:" Cyan -NoNewline
+    $Context.sourceSplashFile = Get-File -Title "Splash-Bild auswählen:" -InitialDirectory $Context.sourcePath -FullName
+    Write-Text $Context.sourceSplashFile -Padding @(1,0,0,1)
+
+    # Anwendungsname abfragen
+    $Context.AppName = Read-CleanString -Prompt "Anwendungsname:" -SkipSpaces
+    $Context.AppID = Read-CleanString -Prompt "Anwendungs-ID:" -Default $Context.AppName
+    
+    Write-Line -Padding
+
+    return $Context
+}
 
 
 # HEADER & USERINPUT ###############################################################################
@@ -441,35 +487,23 @@ while($true){
         '1' { 
             Set-Header "Portable Anwendung erstellen"
 
-            # Anwendungsinformationen abfragen
-            Write-Text "Wählen Sie den Programmordner aus:" Yellow -NoNewline
-            $Context.sourcePath = Get-Folder -Description "Programmordner:" -FullName
-
-            Write-Text "Startdatei (EXE) auswählen:" Yellow -NoNewline -Padding @(2,0,0,1)
-            $Context.AppNameExe = Get-File -Title "Startdatei (EXE) auswählen:" -InitialDirectory $Context.sourcePath -Name
-
-            $Context.AppName         = Read-CleanString -Prompt "Anwendungsname:" -SkipSpaces 
-            $Context.AppID           = Read-CleanString -Prompt "Anwendungs-ID:" -Default $Context.AppName 
-            $Context.destinationPath = Get-Folder  -Description "Zielordner:" -FullName
-            $Context.sourceSplashFile= Get-File -Title "Splash-Bild:" -InitialDirectory $Context.sourcePath -FullName
-
             # Portable App erstellen
-            Set-PortableApp -Context $Context
+            $Context = Set-PortableApp -Context (Get-ApplicationInfo $Context)
 
             # Abschlussmeldung
-            Write-Host "`n  Fertig!" -ForegroundColor Green
-            Write-Host "  Die portable Anwendung wurde erstellt unter:"
-            Write-Host "   "$rootPath -ForegroundColor Yellow
+            Write-Text "-- Fertig --" Green -Padding @(2,1,0,1) -Alignment Center
+            Write-Text "Die portable Anwendung wurde erstellt."
+            
+            Write-Line -Padding
 
             # PortableApps.com Launcher Ordner
-            Write-Host "`n  Suche nach PortableApps.com Launcher Generator..." -ForegroundColor Yellow -NoNewline
+            Write-Text "Suche nach PortableApps.com Launcher Generator..." DarkGray -NoNewline
             if(Test-Path (Join-Path -Path $Context.destinationPath -ChildPath "PortableApps.comLauncher/PortableApps.comLauncherGenerator.exe")){
-                Write-Host " Gefunden!" -ForegroundColor Green
-                if(Read-KeyString "Möchten Sie den Launcher Generator jetzt starten? (Y/N)" -Color "Gray" -YesNo){
-                    Start-Process -FilePath (Join-Path -Path $Context.destinationPath -ChildPath "PortableApps.comLauncher/PortableApps.comLauncherGenerator.exe")
-                }
-            } else { Write-Host " Nicht gefunden!" -ForegroundColor Red }
-            Pause -Silent > $null
+                Write-Text " Gefunden!" Green
+                Start-Process -FilePath (Join-Path -Path $Context.destinationPath -ChildPath "PortableApps.comLauncher/PortableApps.comLauncherGenerator.exe")
+            } else { Write-Text " Nicht gefunden!" Red }
+            
+            Get-Key
         }
         '2' { 
             Set-Header "Desktop.ini erstellen/bearbeiten"
