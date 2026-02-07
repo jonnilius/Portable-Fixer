@@ -8,17 +8,6 @@ $Version = "0.1.2"
 $Context = [ordered]@{}
 
 
-# Debug
-$DebugMode = $false
-$DebugValues = @{
-    AppName         = "UniGetUI"
-    AppID           = "UniGetUIPortable"
-    SourcePath      = "C:\Users\John-Andreas\Downloads\UniGetUI v3.3.6 (x64)"
-    AppExe          = "UniGetUI.exe"
-    DestinationPath = "P:\PortableApps"
-    SplashImage     = "P:\Documents\Pictures\Splash.jpg"
-}
-
 function Use-Ternary {
     <#  -- Ternary-Operator Funktion --
     # Parameter:
@@ -96,18 +85,26 @@ function Get-InputValue {
 function Set-Header {
     param (
         [string]$Text,
-        [int]$Width,
-        [string]$ForegroundColor = "DarkRed"
+        [string]$Color = "DarkRed",
+        [int[]]$Padding = 1
     )
-    if ( -not $Width ) { $Width = $host.UI.RawUI.BufferSize.Width - 2 }
+    # Padding
+    $PadLeft    = Use-Ternary ($Padding.Count -ge 1) { $Padding[0] } { 0 }
+    $PadTop     = Use-Ternary ($Padding.Count -ge 2) { $Padding[1] } { $PadLeft }
+    $PadRight   = Use-Ternary ($Padding.Count -ge 3) { $Padding[2] } { $PadLeft }
+    $PadBottom  = Use-Ternary ($Padding.Count -ge 4) { $Padding[3] } { $PadTop }
     
+    # Width
+    $Width = $host.UI.RawUI.BufferSize.Width - $PadLeft - $PadRight
+    $headerLine = (" " * $PadLeft) + ("=" * $Width) + (" " * $PadRight)
+
+
     Clear-Host
-    Write-Host ""( "=" * $Width ) -ForegroundColor $ForegroundColor
+    Write-Host ("`n" * $PadTop) -NoNewline
+    Write-Host $headerLine -ForegroundColor $Color
     Write-Host ($Text.PadLeft(($Width + $Text.Length) / 2).PadRight($Width))
-    if( $DebugMode ){ Write-Host ("DEBUG MODE ACTIVE".PadLeft(($Width + 17) / 2).PadRight($Width)) -ForegroundColor Yellow }
-    Write-Host ""( "=" * $Width ) -ForegroundColor $ForegroundColor
-    if( $DebugMode ){ Write-Host ("- es werden Testwerte benutzt -".PadLeft(($Width + 31) / 2).PadRight($Width)) -ForegroundColor DarkGray }
-    Write-Space
+    Write-Host $headerLine -ForegroundColor $Color
+    Write-Host ("`n" * $PadBottom)
 }
 function Set-PortableApp {
     param (
@@ -436,26 +433,25 @@ while($true){
 
     Write-Text "1) Portable Anwendung erstellen" Yellow
     Write-Text "2) Desktop.ini erstellen/bearbeiten" Yellow
-    Write-Text "q) Beenden" Red -Padding @(2,1,0,0)
-    Write-Host
+    Write-Text "q) Beenden" Red -Padding @(2,1,0,1)
+    
     $answer = Read-KeyString "Wählen Sie eine Option (1/2):" -ValidKeys @('1','2','q')
     Write-Line -Padding
     switch ($answer) {
         '1' { 
-            # Anwendungsinformationen abfragen
-            $Context.AppName         = Get-InputValue "AppName" { Read-CleanString -Prompt "Anwendungsname:" -SkipSpaces }
-            $Context.AppID           = Get-InputValue "AppID" { Read-CleanString -Prompt "Anwendungs-ID:" -Default $Context.AppName }
-            $Context.sourcePath      = Get-InputValue "SourcePath" { Get-Folder -Description "Programmordner:" }
-            $Context.AppNameExe      = Get-InputValue "AppExe" { Get-File -Title "Datei zum Programm ausführen" -InitialDirectory $Context.sourcePath -Name }
-            $Context.destinationPath = Get-InputValue "DestinationPath" { Get-Folder  -Description "Zielordner:" }
-            $Context.sourceSplashFile= Get-InputValue "SplashImage" { Get-File -Title "Splash-Bild:" -InitialDirectory $Context.sourcePath -FullName }
+            Set-Header "Portable Anwendung erstellen"
 
-            # Bestätigung vor dem Starten
-            if( $DebugMode -and -not (Read-KeyString "Test starten? (Y/N)" -Color "Gray" -YesNo) ){ 
-                Write-Host "  Vorgang wurde Abgebrochen!" -ForegroundColor Red
-                Start-Sleep -Seconds 3
-                exit
-            }
+            # Anwendungsinformationen abfragen
+            Write-Text "Wählen Sie den Programmordner aus:" Yellow -NoNewline
+            $Context.sourcePath = Get-Folder -Description "Programmordner:" -FullName
+
+            Write-Text "Startdatei (EXE) auswählen:" Yellow -NoNewline -Padding @(2,0,0,1)
+            $Context.AppNameExe = Get-File -Title "Startdatei (EXE) auswählen:" -InitialDirectory $Context.sourcePath -Name
+
+            $Context.AppName         = Read-CleanString -Prompt "Anwendungsname:" -SkipSpaces 
+            $Context.AppID           = Read-CleanString -Prompt "Anwendungs-ID:" -Default $Context.AppName 
+            $Context.destinationPath = Get-Folder  -Description "Zielordner:" -FullName
+            $Context.sourceSplashFile= Get-File -Title "Splash-Bild:" -InitialDirectory $Context.sourcePath -FullName
 
             # Portable App erstellen
             Set-PortableApp -Context $Context
@@ -473,9 +469,11 @@ while($true){
                     Start-Process -FilePath (Join-Path -Path $Context.destinationPath -ChildPath "PortableApps.comLauncher/PortableApps.comLauncherGenerator.exe")
                 }
             } else { Write-Host " Nicht gefunden!" -ForegroundColor Red }
-            Pause
+            Pause -Silent > $null
         }
         '2' { 
+            Set-Header "Desktop.ini erstellen/bearbeiten"
+
             # Benutzereingaben für desktop.ini
             Write-Text "Ordner:" Yellow -NoNewline
             $folderPath = Get-Folder -Description "Wählen den Ordner aus:"
@@ -484,10 +482,9 @@ while($true){
     
             Write-Results "Erstelle:" "desktop.ini" -Colors @("Red","Yellow")
             New-DesktopIni -IconFile $iconFile -ExportPath $folderPath
-            Write-Host "`n  Fertig!" -ForegroundColor Green
-            Write-Host "  Die desktop.ini wurde erstellt unter:"
-            Write-Host "   "$folderPath -ForegroundColor Yellow
-            Write-Host "`n`n"
+            Write-Text "Fertig!" Green -Padding @(2,1,0,1)
+            Write-Text "Die desktop.ini wurde erstellt unter:" Yellow -Padding @(2,0,0,1) -NoNewline
+            Write-Text $folderPath 
             Pause -Silent > $null
         }
         'q' { exit }
