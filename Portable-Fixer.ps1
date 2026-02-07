@@ -287,50 +287,6 @@ function Read-CleanString {
     }
     $UserInput | ConvertTo-CleanString -SkipSpaces:$SkipSpaces -SkipSpecialChars:$SkipSpecialChars
 }
-function Read-FolderPath {
-    param (
-        [string]$Prompt      = "Wählen Sie einen Ordner aus:",
-        [string]$PromptColor = $ReadColor,
-        [int]$PromptWidth    = $ReadPromptWidth,
-        [int]$PromptLeft     = 2
-    )
-    $Prompt = (" " * $PromptLeft) + $Prompt
-    $folderPath = Show-FolderBrowserDialog -Description $Prompt
-    if ( $folderPath ) { return $folderPath }
-
-    # Fallback: Manuelle Eingabe, solange bis ein gültiger Ordnerpfad eingegeben wird
-    do {
-        Write-Host $Prompt.PadRight($PromptWidth) -ForegroundColor $PromptColor -NoNewline
-        $UserInput = (Read-Host).Trim()
-    } while ( -not (Test-Path -Path $UserInput -PathType Container) )
-
-    $UserInput
-}
-function Read-FilePath {
-    param (
-        [string]$Prompt      = "Wählen Sie eine Datei aus:",
-        [string]$PromptColor = $ReadColor,
-        [int]$PromptWidth    = $ReadPromptWidth,
-        [int]$PromptLeft    = 2,
-
-        [string]$Location,
-        [switch]$JustFileName
-    )
-
-    $Prompt = (" " * $PromptLeft) + $Prompt
-    do {
-        Write-Host $Prompt.PadRight($PromptWidth) -ForegroundColor $PromptColor -NoNewline
-        $file = (Read-Host).Trim()
-
-        if ( -not (Test-Path $file -PathType Leaf) -and $Location ){ 
-            $file = Join-Path -Path $Location -ChildPath $file 
-        }
-    } while ( -not (Test-Path -Path $file -PathType Leaf) )
-
-    if ( $JustFileName ) { $file = [System.IO.Path]::GetFileName($file) } 
-
-    $file
-}
 function Get-File {
     <# Rückgabewerte:
     - $null, wenn die Auswahl abgebrochen wurde.
