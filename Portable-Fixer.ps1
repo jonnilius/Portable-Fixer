@@ -477,11 +477,11 @@ function Get-ApplicationInfo {
 while($true){
     Set-Header -Text "$Name v$Version"
 
-    Write-Text "1) Portable Anwendung erstellen" Yellow
+    Write-Text "1) PortableApps.com Anwendung erstellen" Yellow
     Write-Text "2) Desktop.ini erstellen/bearbeiten" Yellow
     Write-Text "q) Beenden" Red -Padding @(2,1,0,1)
     
-    $answer = Read-KeyString "Wählen Sie eine Option (1/2):" -ValidKeys @('1','2','q')
+    $answer = Read-KeyString "Wählen Sie eine Option (1/2/q):" -ValidKeys @('1','2','q')
     Write-Line -Padding
     switch ($answer) {
         '1' { 
