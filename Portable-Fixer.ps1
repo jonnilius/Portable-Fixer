@@ -336,7 +336,47 @@ function Get-Folder {
     else { return Get-Item $folderBrowser.SelectedPath } # [System.IO.DirectoryInfo] Objekt
 }
 
+function Write-Text {
+    param (
+        [string]$Text,
+        [System.ConsoleColor]$ForegroundColor = "White",
+        # Layout-Parameter
+        [ValidateSet("Left","Center","Right")]
+        [string]$Alignment = "Left",
+        [int[]]$Padding = @(0,0,0,0), # Padding: [Left, Top, Right, Bottom]
+        [switch]$NoNewline
+    )
+    $Text = $Text.Trim()
 
+    # Padding
+    $PadLeft   = Use-Ternary ($Padding.Count -ge 1) { $Padding[0] } else { 0 }
+    $PadRight  = Use-Ternary ($Padding.Count -ge 3) { $Padding[2] } else { $PadLeft }
+
+    # Width
+    $Width = $host.UI.RawUI.BufferSize.Width
+    $innerWidth = $Width - $PadLeft - $PadRight
+
+    # Text ausrichten
+    switch ( $Alignment ) {
+        "Left"   { $Text = ( " " * $PadLeft) + $Text.PadRight($innerWidth) + ( " " * $PadRight) }
+        "Center" { $Text = ( " " * $PadLeft) + $Text.PadLeft( ($innerWidth + $Text.Length) / 2 ).PadRight($innerWidth) + ( " " * $PadRight) }
+        "Right"  { $Text = ( " " * $PadLeft) + $Text.PadLeft($innerWidth) + ( " " * $PadRight) }
+    }
+
+    # Padding Top/Bottom
+    $PadTop    = Use-Ternary ($Padding.Count -ge 2) { $Padding[1] } else { $PadLeft }
+    $PadBottom = Use-Ternary ($Padding.Count -ge 4) { $Padding[3] } else { $PadTop }
+    $Text = ( "`n" * $PadTop ) + $Text + ( "`n" * $PadBottom )
+
+
+    # Write-Host mit Parameter-Hashtable aufrufen
+    $params = @{
+        Text = $Text
+        ForegroundColor = $ForegroundColor
+        NoNewline = $NoNewline
+    }
+    Write-Host @params
+}
 function Write-Line {
     param (
         [int]$Width = $WindowWidth,
