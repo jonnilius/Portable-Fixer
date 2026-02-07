@@ -2,7 +2,7 @@
 
 # Portable-Maker.ps1
 $Name = "Portable-Fixer"
-$Version = "0.1.0"
+$Version = "0.1.1"
 
 # Einstellungen
 $Context = [ordered]@{}
@@ -444,7 +444,6 @@ while($true){
     switch ($answer) {
         '1' { 
             # Anwendungsinformationen abfragen
-            
             $Context.AppName         = Get-InputValue "AppName" { Read-CleanString -Prompt "Anwendungsname:" -SkipSpaces }
             $Context.AppID           = Get-InputValue "AppID" { Read-CleanString -Prompt "Anwendungs-ID:" -Default $Context.AppName }
             $Context.sourcePath      = Get-InputValue "SourcePath" { Get-Folder -Description "Programmordner:" }
