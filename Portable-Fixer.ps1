@@ -448,12 +448,12 @@ function Get-ApplicationInfo {
     Write-Text $Context.sourcePath -Padding @(1,0,0,0)
 
     # Startdatei (EXE) auswählen
-    Write-Text "Startdatei (EXE) auswählen:" DarkRed -NoNewline
+    Write-Text "Startdatei (EXE) auswählen:" DarkCyan -NoNewline
     $Context.AppNameExe = Get-File -Title "Startdatei (EXE) auswählen:" -InitialDirectory $Context.sourcePath -Name
     Write-Text $Context.AppNameExe -Padding @(1,0,0,0)
     
     # Speicherort für die portable Anwendung auswählen (Zielordner)
-    Write-Text "Zielordner für die portable Anwendung auswählen:" DarkRed -NoNewline
+    Write-Text "Zielordner für die portable Anwendung auswählen:" DarkCyan -NoNewline
     $Context.destinationPath = Get-Folder -Description "Zielordner:" -FullName
     Write-Text $Context.destinationPath -Padding @(1,0,0,1)
 
@@ -491,18 +491,20 @@ while($true){
             $Context = Set-PortableApp -Context (Get-ApplicationInfo $Context)
 
             # Abschlussmeldung
-            Write-Text "-- Fertig --" Green -Padding @(2,1,0,1) -Alignment Center
-            Write-Text "Die portable Anwendung wurde erstellt."
-            
+            Write-Text "Fertig!" Green -Padding @(2,0,0,1)
+            Write-Text $Context.AppName -ForegroundColor Cyan -Padding @(2,0,0,1) -NoNewline
+            Write-Text " wurde erfolgreich portabel gemacht."
             Write-Line -Padding
+            
 
-            # PortableApps.com Launcher Ordner
+            # PortableApps.com Launcher Generator
             Write-Text "Suche nach PortableApps.com Launcher Generator..." DarkGray -NoNewline
             if(Test-Path (Join-Path -Path $Context.destinationPath -ChildPath "PortableApps.comLauncher/PortableApps.comLauncherGenerator.exe")){
-                Write-Text " Gefunden!" Green
+                Write-Text "starten" Green
                 Start-Process -FilePath (Join-Path -Path $Context.destinationPath -ChildPath "PortableApps.comLauncher/PortableApps.comLauncherGenerator.exe")
             } else { Write-Text " Nicht gefunden!" Red }
             
+            Write-Text "[ENTER]" Yellow -Alignment Center -Padding 3
             Get-Key
         }
         '2' { 
