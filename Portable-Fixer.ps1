@@ -23,6 +23,20 @@ $DebugValues = @{
     SplashImage     = "P:\Documents\Pictures\Splash.jpg"
 }
 
+function Use-Ternary {
+    <#  -- Ternary-Operator Funktion --
+    # Parameter:
+    # - $Condition: Die Bedingung, die ausgewertet werden soll (bool).
+    # - $TrueValue: Der Wert oder Ausdruck, der zurückgegeben wird, wenn die Bedingung wahr ist (scriptblock).
+    # - $FalseValue: Der Wert oder Ausdruck, der zurückgegeben wird, wenn die Bedingung falsch ist (scriptblock).
+    #>
+    param (
+        [bool]$Condition,
+        [scriptblock]$TrueValue,
+        [scriptblock]$FalseValue
+    )
+    if ( $Condition ) { & $TrueValue } else { & $FalseValue }
+}
 
 # Entfernt Leerzeichen und Sonderzeichen aus einem String
 function ConvertTo-CleanString {
@@ -321,6 +335,7 @@ function Get-Folder {
     elseif ( $Name ) { return [System.IO.Path]::GetFileName($folderBrowser.SelectedPath) } # [string] mit dem Ordnernamen
     else { return Get-Item $folderBrowser.SelectedPath } # [System.IO.DirectoryInfo] Objekt
 }
+
 
 function Write-Line {
     param (
