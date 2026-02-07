@@ -343,14 +343,14 @@ function Write-Text {
         # Layout-Parameter
         [ValidateSet("Left","Center","Right")]
         [string]$Alignment = "Left",
-        [int[]]$Padding = @(0,0,0,0), # Padding: [Left, Top, Right, Bottom]
+        [int[]]$Padding = @(2,0,0,0), # Padding: [Left, Top, Right, Bottom]
         [switch]$NoNewline
     )
     $Text = $Text.Trim()
 
     # Padding
-    $PadLeft   = Use-Ternary ($Padding.Count -ge 1) { $Padding[0] } else { 0 }
-    $PadRight  = Use-Ternary ($Padding.Count -ge 3) { $Padding[2] } else { $PadLeft }
+    $PadLeft   = Use-Ternary ($Padding.Count -ge 1) { $Padding[0] } { 0 }
+    $PadRight  = Use-Ternary ($Padding.Count -ge 3) { $Padding[2] } { $PadLeft }
 
     # Width
     $Width = $host.UI.RawUI.BufferSize.Width
@@ -364,14 +364,14 @@ function Write-Text {
     }
 
     # Padding Top/Bottom
-    $PadTop    = Use-Ternary ($Padding.Count -ge 2) { $Padding[1] } else { $PadLeft }
-    $PadBottom = Use-Ternary ($Padding.Count -ge 4) { $Padding[3] } else { $PadTop }
+    $PadTop    = Use-Ternary ($Padding.Count -ge 2) { $Padding[1] } { $PadLeft }
+    $PadBottom = Use-Ternary ($Padding.Count -ge 4) { $Padding[3] } { $PadTop }
     $Text = ( "`n" * $PadTop ) + $Text + ( "`n" * $PadBottom )
 
 
     # Write-Host mit Parameter-Hashtable aufrufen
     $params = @{
-        Text = $Text
+        Object = $Text
         ForegroundColor = $ForegroundColor
         NoNewline = $NoNewline
     }
@@ -430,8 +430,9 @@ while($true){
 
     Write-Host "  1) Portable Anwendung erstellen" -ForegroundColor Yellow
     Write-Host "  2) Desktop.ini erstellen/bearbeiten" -ForegroundColor Yellow
+    Write-Text "q) Beenden" Red -Padding @(2,1,0,0)
     Write-Host
-    $answer = Read-KeyString -Prompt "Wählen Sie eine Option (1/2):" -ValidKeys @('1','2')
+    $answer = Read-KeyString -Prompt "Wählen Sie eine Option (1/2):" -ValidKeys @('1','2','q')
     Write-Line -Padding
     switch ($answer) {
         '1' { 
@@ -469,9 +470,12 @@ while($true){
             Pause
         }
         '2' { 
-            $folderPath = Get-Folder -Description "Ordnerpfad für desktop.ini:"
+            # Benutzereingaben für desktop.ini
+            Write-Text "Ordner:" Yellow -NoNewline
+            $folderPath = Get-Folder -Description "Wählen den Ordner aus:"
+            Write-Text "Icon-Quelle:" Yellow -NoNewline -Padding @(2,0,0,1)
             $iconFile   = Get-File -Title "Pfad zur EXE-Datei für das Icon:" -FullName
-            Write-Line -Padding
+    
             Write-Results "Erstelle:" "desktop.ini" -Colors @("Red","Yellow")
             New-DesktopIni -IconFile $iconFile -ExportPath $folderPath
             Write-Host "`n  Fertig!" -ForegroundColor Green
@@ -480,6 +484,7 @@ while($true){
             Write-Host "`n`n"
             Pause -Silent > $null
         }
+        'q' { exit }
         Default {}
     }
 }
