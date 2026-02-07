@@ -332,6 +332,12 @@ function Read-FilePath {
     $file
 }
 function Get-File {
+    <# Rückgabewerte:
+    - $null, wenn die Auswahl abgebrochen wurde.
+    - [string] mit dem Pfad der ausgewählten Datei, wenn $FullName gesetzt ist.
+    - [string] mit dem Dateinamen der ausgewählten Datei, wenn $Name gesetzt
+    - [System.IO.FileInfo] Objekt der ausgewählten Datei, wenn keine Schalter gesetzt sind.
+    #>
     param(
         [string]$Title = "Wählen Sie eine Datei aus",
         [string]$InitialDirectory, # Optionaler Startordner für den Datei-Auswahldialog
@@ -353,6 +359,26 @@ function Get-File {
     if ( $FullName ) { return $fileDialog.FileName } 
     elseif ( $Name ) { return [System.IO.Path]::GetFileName($fileDialog.FileName) } 
     else { return Get-Item $fileDialog.FileName }
+}
+function Get-Folder {
+    param(
+        [string]$Description = "Wählen Sie einen Ordner aus:",
+        # Rückgabewerte:
+        [switch]$FullName,
+        [switch]$Name
+    )
+    # Ordner-Auswahldialog erstellen
+    $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
+    $folderBrowser.Description = $Description
+    
+    # Ordner-Auswahldialog anzeigen
+    $dialogResult = $folderBrowser.ShowDialog()
+    if ( $dialogResult -ne [System.Windows.Forms.DialogResult]::OK ) { return $null } # Auswahl wurde abgebrochen, null zurückgeben
+
+    # Rückgabewert basierend auf den Schaltern
+    if ( $FullName ) { return $folderBrowser.SelectedPath } # [string] mit dem vollständigen Pfad
+    elseif ( $Name ) { return [System.IO.Path]::GetFileName($folderBrowser.SelectedPath) } # [string] mit dem Ordnernamen
+    else { return Get-Item $folderBrowser.SelectedPath } # [System.IO.DirectoryInfo] Objekt
 }
 
 function Write-Line {
@@ -416,10 +442,10 @@ while($true){
             # Anwendungsinformationen abfragen
             $Context.AppName         = Get-InputValue "AppName" { Read-CleanString -Prompt "Anwendungsname:" -SkipSpaces }
             $Context.AppID           = Get-InputValue "AppID" { Read-CleanString -Prompt "Anwendungs-ID:" -Default $Context.AppName }
-            $Context.sourcePath      = Get-InputValue "SourcePath" { Read-FolderPath  -Prompt "Programmordner:" -UIBrowse }
-            $Context.AppNameExe      = Get-InputValue "AppExe" { Read-FilePath    -Prompt "Programmdatei:" -JustFileName -Location $Context.sourcePath }
-            $Context.destinationPath = Get-InputValue "DestinationPath" { Read-FolderPath  -Prompt "Zielordner:" }
-            $Context.sourceSplashFile= Get-InputValue "SplashImage" { Read-FilePath    -Prompt "Splash-Bild:" }
+            $Context.sourcePath      = Get-InputValue "SourcePath" { Get-Folder -Description "Programmordner:" }
+            $Context.AppNameExe      = Get-InputValue "AppExe" { Get-File -Title "Datei zum Programm ausführen" -InitialDirectory $Context.sourcePath -Name }
+            $Context.destinationPath = Get-InputValue "DestinationPath" { Get-Folder  -Description "Zielordner:" }
+            $Context.sourceSplashFile= Get-InputValue "SplashImage" { Get-File -Title "Splash-Bild:" -InitialDirectory $Context.sourcePath -FullName }
 
             # Bestätigung vor dem Starten
             if( $DebugMode -and -not (Read-KeyString -Prompt "Test starten? (Y/N)" -PromptColor "Gray" -YesNo) ){ 
@@ -447,7 +473,7 @@ while($true){
             Pause
         }
         '2' { 
-            $folderPath = Read-FolderPath -Prompt "Ordnerpfad für desktop.ini:"
+            $folderPath = Get-Folder -Description "Ordnerpfad für desktop.ini:"
             $iconFile   = Get-File -Title "Pfad zur EXE-Datei für das Icon:" -FullName
             Write-Line -Padding
             Write-Results "Erstelle:" "desktop.ini" -Colors @("Red","Yellow")
