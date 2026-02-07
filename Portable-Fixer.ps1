@@ -5,12 +5,11 @@ $Name = "Portable-Fixer"
 $Version = "0.1.0"
 
 # Einstellungen
+$Context = [ordered]@{}
 $WindowWidth  = 80
 $WindowHeight = 50
 $ReadPromptWidth = 20
-$ReadColor = "Cyan"
 
-$host.UI.RawUI.BufferSize = $host.UI.RawUI.WindowSize = New-Object Management.Automation.Host.Size ($($WindowWidth +1), $WindowHeight)
 
 # Debug
 $DebugMode = $false
@@ -242,19 +241,28 @@ function Read-KeyString {
         Mit -YesNo wird eine Ja/Nein-Abfrage erstellt, die nur 'Y' oder 'N' akzeptiert
         #>
     param (
-        [string]$Prompt      = "Drücken Sie eine Taste:",
-        [string]$PromptColor = $ReadColor,
-        [int]$PromptWidth    = $ReadPromptWidth,
-        [int]$PromptLeft     = 2,
+        [string]$Text       = "Drücken Sie eine Taste:",
+        [string]$Color      = "Yellow",
+        [array]$ValidKeys   = @(),
+        [int[]]$Padding     = @(2,0,0,0),
 
-        [array]$ValidKeys    = @(),
         [switch]$YesNo
     )
+    
+    # Padding
+    $PadLeft    = Use-Ternary ($Padding.Count -ge 1) { $Padding[0] } { 0 }
+    $PadTop     = Use-Ternary ($Padding.Count -ge 2) { $Padding[1] } { $PadLeft }
+    $PadRight   = Use-Ternary ($Padding.Count -ge 3) { $Padding[2] } { $PadLeft }
+    $PadBottom  = Use-Ternary ($Padding.Count -ge 4) { $Padding[3] } { $PadTop }
+    $Text = (" " * $PadLeft) + $Text + (" " * $PadRight)
+    $Text = ("`n" * $PadTop) + $Text + ("`n" * $PadBottom)
+
+    # ValidKeys
     if ( $YesNo ) { $ValidKeys = @('Y','N') }
 
-    $Prompt = (" " * $PromptLeft) + $Prompt
+    # Tastendruck abfragen
     do {
-        Write-Host $Prompt.PadRight($PromptWidth) -ForegroundColor $PromptColor -NoNewline
+        Write-Host $Text -ForegroundColor $Color -NoNewline
         $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown").Character
     } 
     while ( $ValidKeys.Count -gt 0 -and $key -notin $ValidKeys )
@@ -266,7 +274,7 @@ function Read-CleanString {
     param (
         # Prompt-Parameter
         [string]$Prompt      = "Geben Sie einen Wert ein:",
-        [string]$PromptColor = $ReadColor,
+        [string]$PromptColor = "Yellow",
         [int]$PromptWidth    = $ReadPromptWidth,
         [int]$PromptLeft    = 2,
 
@@ -423,20 +431,20 @@ function Write-Results {
 
 
 # HEADER & USERINPUT ###############################################################################
-$Context = [ordered]@{}
 
 while($true){
     Set-Header -Text "$Name v$Version"
 
-    Write-Host "  1) Portable Anwendung erstellen" -ForegroundColor Yellow
-    Write-Host "  2) Desktop.ini erstellen/bearbeiten" -ForegroundColor Yellow
+    Write-Text "1) Portable Anwendung erstellen" Yellow
+    Write-Text "2) Desktop.ini erstellen/bearbeiten" Yellow
     Write-Text "q) Beenden" Red -Padding @(2,1,0,0)
     Write-Host
-    $answer = Read-KeyString -Prompt "Wählen Sie eine Option (1/2):" -ValidKeys @('1','2','q')
+    $answer = Read-KeyString "Wählen Sie eine Option (1/2):" -ValidKeys @('1','2','q')
     Write-Line -Padding
     switch ($answer) {
         '1' { 
             # Anwendungsinformationen abfragen
+            
             $Context.AppName         = Get-InputValue "AppName" { Read-CleanString -Prompt "Anwendungsname:" -SkipSpaces }
             $Context.AppID           = Get-InputValue "AppID" { Read-CleanString -Prompt "Anwendungs-ID:" -Default $Context.AppName }
             $Context.sourcePath      = Get-InputValue "SourcePath" { Get-Folder -Description "Programmordner:" }
@@ -445,7 +453,7 @@ while($true){
             $Context.sourceSplashFile= Get-InputValue "SplashImage" { Get-File -Title "Splash-Bild:" -InitialDirectory $Context.sourcePath -FullName }
 
             # Bestätigung vor dem Starten
-            if( $DebugMode -and -not (Read-KeyString -Prompt "Test starten? (Y/N)" -PromptColor "Gray" -YesNo) ){ 
+            if( $DebugMode -and -not (Read-KeyString "Test starten? (Y/N)" -Color "Gray" -YesNo) ){ 
                 Write-Host "  Vorgang wurde Abgebrochen!" -ForegroundColor Red
                 Start-Sleep -Seconds 3
                 exit
@@ -463,7 +471,7 @@ while($true){
             Write-Host "`n  Suche nach PortableApps.com Launcher Generator..." -ForegroundColor Yellow -NoNewline
             if(Test-Path (Join-Path -Path $Context.destinationPath -ChildPath "PortableApps.comLauncher/PortableApps.comLauncherGenerator.exe")){
                 Write-Host " Gefunden!" -ForegroundColor Green
-                if(Read-KeyString -Prompt "Möchten Sie den Launcher Generator jetzt starten? (Y/N)" -PromptColor "Gray" -YesNo){
+                if(Read-KeyString "Möchten Sie den Launcher Generator jetzt starten? (Y/N)" -Color "Gray" -YesNo){
                     Start-Process -FilePath (Join-Path -Path $Context.destinationPath -ChildPath "PortableApps.comLauncher/PortableApps.comLauncherGenerator.exe")
                 }
             } else { Write-Host " Nicht gefunden!" -ForegroundColor Red }
