@@ -2,13 +2,10 @@
 
 # Portable-Maker.ps1
 $Name = "Portable-Fixer"
-$Version = "0.1.1"
+$Version = "0.1.2"
 
 # Einstellungen
 $Context = [ordered]@{}
-$WindowWidth  = 80
-$WindowHeight = 50
-$ReadPromptWidth = 20
 
 
 # Debug
@@ -99,9 +96,11 @@ function Get-InputValue {
 function Set-Header {
     param (
         [string]$Text,
-        [int]$Width = $WindowWidth,
+        [int]$Width,
         [string]$ForegroundColor = "DarkRed"
     )
+    if ( -not $Width ) { $Width = $host.UI.RawUI.BufferSize.Width - 2 }
+    
     Clear-Host
     Write-Host ""( "=" * $Width ) -ForegroundColor $ForegroundColor
     Write-Host ($Text.PadLeft(($Width + $Text.Length) / 2).PadRight($Width))
@@ -275,7 +274,7 @@ function Read-CleanString {
         # Prompt-Parameter
         [string]$Prompt      = "Geben Sie einen Wert ein:",
         [string]$PromptColor = "Yellow",
-        [int]$PromptWidth    = $ReadPromptWidth,
+        [int]$PromptWidth    = 20,
         [int]$PromptLeft    = 2,
 
         [string]$Default = "",
@@ -387,7 +386,7 @@ function Write-Text {
 }
 function Write-Line {
     param (
-        [int]$Width = $WindowWidth,
+        [int]$Width = $host.UI.RawUI.BufferSize.Width,
         [string]$Character = "-",
         [string]$ForegroundColor = "DarkRed",
         [switch]$Padding
