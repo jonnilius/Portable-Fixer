@@ -137,21 +137,6 @@ function Set-PortableApp {
     Write-Results "Kopiere:" "$($Context.AppID)\App\AppInfo\Launcher\Splash.jpg " -Colors @("Red","Yellow")
     Copy-Item -Path $Context.sourceSplashFile -Destination (Join-Path -Path $AppLauncherPath -ChildPath "Splash.jpg") -Force
 }
-function Show-FolderBrowserDialog {
-    param (
-        [string]$Description = "Wählen Sie einen Ordner aus:"
-    )
-    Add-Type -AssemblyName System.Windows.Forms
-    $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
-    $folderBrowser.Description = $Description
-    $folderBrowser.ShowNewFolderButton = $true
-
-    $result = $folderBrowser.ShowDialog()
-    if ( $result -eq [System.Windows.Forms.DialogResult]::OK ) {
-        return $folderBrowser.SelectedPath
-    }
-    return $null
-}
 
 function New-AppInfoIni {
     param (
