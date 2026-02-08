@@ -202,15 +202,14 @@ function New-AppInfoIni {
 function New-AppLauncherIni {
     param (
         [hashtable]$Context,
-        [string]$ExportPath    # Speicherordner der AppLauncher.ini
+        [string]$ExportPath,
+        [bool]$SingleAppInstance = $true
     )
-    # AppLauncher.ini Parameter setzen
-    $ProgramExecutable = Join-Path -Path $Context.AppName -ChildPath $Context.AppNameExe
+    # [Launch] Sektion
+    $Content = "[Launch]`n"
+    $Content += "ProgramExecutable=" + (Join-Path -Path $Context.AppName -ChildPath $Context.AppNameExe) + "`n"
 
-    $Content = @"
-[Launch]
-ProgramExecutable=$ProgramExecutable
-"@
+
     $ExportFile = Join-Path -Path $ExportPath -ChildPath "$($Context.AppID).ini"
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::WriteAllText($ExportFile, $Content, $utf8NoBom)
