@@ -160,33 +160,41 @@ function New-AppInfoIni {
         # [Details] Sektion
         [string]$AppName = $Context.AppName,
         [string]$AppID   = $Context.AppID,
+        [string]$Publisher,
+        [string]$Homepage,
+        [string]$Category,
+        [string]$Description,
+        [string]$Language,
         # [Control] Sektion
         [int]$Icons = 1,
         [string]$Start,
         [string]$ExtractIcon        
     )
-    # appinfo.ini Parameter setzen
-    if( -not $AppName ){ $AppName = $AppID }
-    if( -not $AppID ){ $AppID = $AppName -replace '\s','' }   
-    if( -not $Start ){ $Start = "$AppID.exe" }
+    # [Format] Sektion
+    $Content = "[Format]`n"
+    $Content += "Type=$Type`n"
+    $Content += "Version=$Version`n"
+
+    # [Details] Sektion
+    $Content += "`n[Details]`n"
+    $Content += Use-Ternary ($AppName -ne "") { "Name=$AppName`n" } { "Name=$AppID`n" }
+    $Content += Use-Ternary ($AppID -ne "") { "AppID=$AppID`n" } { "AppID=$AppName`n" }
+    if ( $Publisher ) { $Content += "Publisher=$Publisher`n" }
+    if ( $Homepage ) { $Content += "Homepage=$Homepage`n" }
+    if ( $Category ) { $Content += "Category=$Category`n" }
+    if ( $Description ) { $Content += "Description=$Description`n" }
+    if ( $Language ) { $Content += "Language=$Language`n" }
+
+    # [Control] Sektion
+    $Content += "`n[Control]`n"
+    $Content += Use-Ternary ($Icons) { "Icons=$Icons`n" } { "Icons=1`n" }
+    $Content += Use-Ternary ($Start -ne "") { "Start=$Start`n" } { "Start=$AppName.exe`n" }
+    if ( $ExtractIcon ) { $Content += "ExtractIcon=$ExtractIcon`n" }
 
     # appinfo.ini Pfad festlegen
     if( -not $ExportPath ){{ throw "New-AppInfoIni: 'ExportPath' ist erforderlich." }}
     $ExportFile = Join-Path -Path $ExportPath -ChildPath "appinfo.ini"
 
-    $Content = @"
-[Format]
-Type=$Type
-Version=$Version
-
-[Details]
-Name=$AppName
-AppID=$AppID
-
-[Control]
-Icons=$Icons
-Start=$Start
-"@ 
     if ( $ExtractIcon ) { $Content += "ExtractIcon=$ExtractIcon`n" }
 
     $Content | Set-Content -Path $ExportFile -Encoding UTF8
@@ -504,8 +512,7 @@ while($true){
                 Start-Process -FilePath (Join-Path -Path $Context.destinationPath -ChildPath "PortableApps.comLauncher/PortableApps.comLauncherGenerator.exe")
             } else { Write-Text " Nicht gefunden!" Red }
             
-            Write-Text "[ENTER]" Yellow -Alignment Center -Padding 3
-            Get-Key
+            Start-Sleep -Seconds 2
         }
         '2' { 
             Set-Header "Desktop.ini erstellen/bearbeiten"
