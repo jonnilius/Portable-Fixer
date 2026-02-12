@@ -217,7 +217,7 @@ function New-AppLauncherIni {
 }
 
 
-function Read-KeyString {
+function Read-Key {
     <#  Erwartet einen Tastendruck 
         Der Benutzer wird nach einer Taste (einem Zeichen) gefragt, welches sich 
         in $ValidKeys befinden muss. Der dann akzeptierte gedrückte Tastendruck 
@@ -231,16 +231,18 @@ function Read-KeyString {
         [array]$ValidKeys   = @(),
         [int[]]$Margin      = @(0,0,0,2),
 
-        [switch]$YesNo
+        [switch]$YesNo,
+        [switch]$Silent
     )
     [System.Console]::CursorVisible = $false
 
-    # ValidKeys
+    # Switch-Parameter
     if ( $YesNo ) { $ValidKeys = @('Y','N') }
+    if ( $Silent ) { $Text = "" }
 
     # Tastendruck abfragen
     do {
-        Write-Text $Text -ForegroundColor $Color -Margin 0,0,0,2 -NoNewline
+        Write-Text $Text -ForegroundColor $Color -Margin $Margin -NoNewline
         $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown").Character
     } 
     while ( $ValidKeys.Count -gt 0 -and $key -notin $ValidKeys )
@@ -272,13 +274,6 @@ function Read-CleanString {
         $UserInput = $Default 
     }
     $UserInput | ConvertTo-CleanString -SkipSpaces:$SkipSpaces -SkipSpecialChars:$SkipSpecialChars
-}
-function Get-Key {
-    param(
-        [string]$KeyName = "Enter"
-    )
-    do { $key = [System.Console]::ReadKey($true) }
-    until ( $key.Key -eq $KeyName )
 }
 
 function Write-Text {
@@ -449,7 +444,7 @@ FolderType=Generic
     Write-Text "Fertig!" Green
     Write-Text "Die desktop.ini wurde erstellt unter:" Yellow -NoNewline
     Write-Text $FolderPath 
-    Get-Key
+    Read-Key -Silent
 }
 
 # HEADER & USERINPUT ###############################################################################
@@ -462,7 +457,7 @@ while($true){
     Write-Text "q) Beenden" Red -Margin 1,0,1,2
     Write-Line
     
-    $answer = Read-KeyString "Wählen Sie eine Option (1/2/q):" -ValidKeys @('1','2','q')
+    $answer = Read-Key "Wählen Sie eine Option (1/2/q):" -ValidKeys @('1','2','q')
     Write-Line
     switch ($answer) {
         '1' { 
