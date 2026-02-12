@@ -1,11 +1,10 @@
-﻿Add-Type -AssemblyName System.Windows.Forms
-
-# Portable-Maker.ps1
+﻿# Portable-Maker.ps1
 $Name = "Portable-Fixer"
 $Version = "0.1.2"
 
 # Einstellungen
 $Context = [ordered]@{}
+. .\WindowsForms.ps1
 
 
 function Use-Ternary {
@@ -86,8 +85,10 @@ function Set-Header {
     param (
         [string]$Text,
         [string]$Color = "DarkRed",
-        [int[]]$Margin = 1
+        [int[]]$Margin = 1,
+        [int]$Width    = $host.UI.RawUI.BufferSize.Width
     )
+
     # Padding
     $MarginTop    = if ($Margin.Count -ge 1) { $Margin[0] } else { 0 }
     $MarginRight  = if ($Margin.Count -ge 2) { $Margin[1] } else { $MarginTop }
@@ -95,7 +96,6 @@ function Set-Header {
     $MarginLeft   = if ($Margin.Count -ge 4) { $Margin[3] } else { $MarginRight }
     
     # Width
-    $Width      = $host.UI.RawUI.BufferSize.Width
     $innerWidth = $Width - $MarginLeft - $MarginRight
     $Line       = (" " * $MarginLeft) + ("=" * $innerWidth) + (" " * $MarginRight)
 
@@ -216,27 +216,6 @@ function New-AppLauncherIni {
     [System.IO.File]::WriteAllText($ExportFile, $Content, $utf8NoBom)
 }
 
-function New-DesktopIni {
-    param (
-        [string]$IconFile,       # Pfad zur EXE-Datei für das Icon
-        [string]$ExportPath # betroffenes Verzeichnis
-    )
-    if (-not $ExportPath) { throw "New-DesktopIni: 'ExportPath' ist erforderlich." }
-        
-    $ExportFile = Join-Path -Path $ExportPath -ChildPath "desktop.ini"
-    
-    @"
-[.ShellClassInfo]
-IconResource=$IconFile,0
-
-[ViewState]
-FolderType=Generic
-"@ | Set-Content -Path $ExportFile -Encoding Unicode -Force
-
-    # Attribute setzen: versteckt und System
-    attrib +h +s $ExportFile
-    attrib +r $ExportPath
-}
 
 function Read-KeyString {
     <#  Erwartet einen Tastendruck 
@@ -250,28 +229,22 @@ function Read-KeyString {
         [string]$Text       = "Drücken Sie eine Taste:",
         [string]$Color      = "Yellow",
         [array]$ValidKeys   = @(),
-        [int[]]$Padding     = @(2,0,0,0),
+        [int[]]$Margin      = @(0,0,0,2),
 
         [switch]$YesNo
     )
-    
-    # Padding
-    $PadLeft    = Use-Ternary ($Padding.Count -ge 1) { $Padding[0] } { 0 }
-    $PadTop     = Use-Ternary ($Padding.Count -ge 2) { $Padding[1] } { $PadLeft }
-    $PadRight   = Use-Ternary ($Padding.Count -ge 3) { $Padding[2] } { $PadLeft }
-    $PadBottom  = Use-Ternary ($Padding.Count -ge 4) { $Padding[3] } { $PadTop }
-    $Text = (" " * $PadLeft) + $Text + (" " * $PadRight)
-    $Text = ("`n" * $PadTop) + $Text + ("`n" * $PadBottom)
+    [System.Console]::CursorVisible = $false
 
     # ValidKeys
     if ( $YesNo ) { $ValidKeys = @('Y','N') }
 
     # Tastendruck abfragen
     do {
-        Write-Host $Text -ForegroundColor $Color -NoNewline
+        Write-Text $Text -ForegroundColor $Color -Margin 0,0,0,2 -NoNewline
         $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown").Character
     } 
     while ( $ValidKeys.Count -gt 0 -and $key -notin $ValidKeys )
+    [System.Console]::CursorVisible = $true
 
     if ( $YesNo ){ return $key -eq 'Y' }
     $key
@@ -300,57 +273,6 @@ function Read-CleanString {
     }
     $UserInput | ConvertTo-CleanString -SkipSpaces:$SkipSpaces -SkipSpecialChars:$SkipSpecialChars
 }
-function Get-File {
-    <# Rückgabewerte:
-    - $null, wenn die Auswahl abgebrochen wurde.
-    - [string] mit dem Pfad der ausgewählten Datei, wenn $FullName gesetzt ist.
-    - [string] mit dem Dateinamen der ausgewählten Datei, wenn $Name gesetzt
-    - [System.IO.FileInfo] Objekt der ausgewählten Datei, wenn keine Schalter gesetzt sind.
-    #>
-    param(
-        [string]$Title = "Wählen Sie eine Datei aus",
-        [string]$InitialDirectory, # Optionaler Startordner für den Datei-Auswahldialog
-
-        [switch]$FullName,
-        [switch]$Name
-    )
-    # Datei-Auswahldialog erstellen
-    $fileDialog = New-Object System.Windows.Forms.OpenFileDialog
-    $fileDialog.Title = $Title
-    $fileDialog.Filter = "Alle Dateien (*.*)|*.*"
-    if ( $InitialDirectory ) { if (Test-Path $InitialDirectory -PathType Container) { $fileDialog.InitialDirectory = $InitialDirectory } }
-
-    # Dialog anzeigen und ausgewählten Dateipfad zurückgeben
-    try { if ( $fileDialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK ) { return $null } }
-    finally { $fileDialog.Dispose() }
-    
-    # Rückgabewert basierend auf den Schaltern
-    if ( $FullName ) { return $fileDialog.FileName } 
-    elseif ( $Name ) { return [System.IO.Path]::GetFileName($fileDialog.FileName) } 
-    else { return Get-Item $fileDialog.FileName }
-}
-function Get-Folder {
-    param(
-        [string]$Description = "Wählen Sie einen Ordner aus:",
-        # Rückgabewerte:
-        [switch]$FullName,
-        [switch]$Name,
-        [switch]$WriteSelectedPath
-    )
-    # Ordner-Auswahldialog erstellen
-    $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
-    $folderBrowser.Description = $Description
-    
-    # Ordner-Auswahldialog anzeigen
-    $dialogResult = $folderBrowser.ShowDialog()
-    if ( $dialogResult -ne [System.Windows.Forms.DialogResult]::OK ) { return $null } # Auswahl wurde abgebrochen, null zurückgeben
-    if ( $WriteSelectedPath ) { Write-Host $folderBrowser.SelectedPath }
-
-    # Rückgabewert basierend auf den Schaltern
-    if ( $FullName ) { return $folderBrowser.SelectedPath } # [string] mit dem vollständigen Pfad
-    elseif ( $Name ) { return [System.IO.Path]::GetFileName($folderBrowser.SelectedPath) } # [string] mit dem Ordnernamen
-    else { return Get-Item $folderBrowser.SelectedPath } # [System.IO.DirectoryInfo] Objekt
-}
 function Get-Key {
     param(
         [string]$KeyName = "Enter"
@@ -363,37 +285,37 @@ function Write-Text {
     param (
         [string]$Text,
         [System.ConsoleColor]$ForegroundColor = "White",
-        [switch]$NoNewline,
         # Layout-Parameter
         [ValidateSet("Left","Center","Right")]
         [string]$Alignment,
-        [int[]]$Padding = @(2,0,0,0) # Padding: [Left, Top, Right, Bottom]
+
+        # Margin
+        [int[]]$Margin = @(0,0,0,2),   # Margin: [Top,Right,Bottom,Left]
+
+        # Switch-Parameter
+        [switch]$NoNewline
     )
     $Text = $Text.Trim()
 
-    # Padding
-    $PadLeft   = Use-Ternary ($Padding.Count -ge 1) { $Padding[0] } { 0 }
-    $PadRight  = Use-Ternary ($Padding.Count -ge 3) { $Padding[2] } { $PadLeft }
+    # Margin
+    $MarginTop      = if ( $Margin.Count -ge 1 ) { $Margin[0] } else { 0 }
+    $MarginRight    = if ( $Margin.Count -ge 2 ) { $Margin[1] } else { $MarginTop }
+    $MarginBottom   = if ( $Margin.Count -ge 3 ) { $Margin[2] } else { $MarginTop }
+    $MarginLeft     = if ( $Margin.Count -ge 4 ) { $Margin[3] } else { $MarginRight }
 
     # Width
     $Width = $host.UI.RawUI.BufferSize.Width
-    $innerWidth = $Width - $PadLeft - $PadRight
+    $innerWidth = $Width - $MarginLeft - $MarginRight
 
-    # Text ausrichten
+    # Text ausrichten / Margin anwenden
     if ( $Alignment ) {
         switch ( $Alignment ) {
-            "Left"   { $Text = ( " " * $PadLeft) + $Text.PadRight($innerWidth) + ( " " * $PadRight) }
-            "Center" { $Text = ( " " * $PadLeft) + $Text.PadLeft( ($innerWidth + $Text.Length) / 2 ).PadRight($innerWidth) + ( " " * $PadRight) }
-            "Right"  { $Text = ( " " * $PadLeft) + $Text.PadLeft($innerWidth) + ( " " * $PadRight) }
+            "Left"   { $Text = ( " " * $MarginLeft) + $Text.PadRight($innerWidth) + ( " " * $MarginRight) }
+            "Center" { $Text = ( " " * $MarginLeft) + $Text.PadLeft( ($innerWidth + $Text.Length) / 2 ).PadRight($innerWidth) + ( " " * $MarginRight) }
+            "Right"  { $Text = ( " " * $MarginLeft) + $Text.PadLeft($innerWidth) + ( " " * $MarginRight) }
         }
-    } else {
-        $Text = ( " " * $PadLeft) + $Text + ( " " * $PadRight)
-    }
-
-    # Padding Top/Bottom
-    $PadTop    = Use-Ternary ($Padding.Count -ge 2) { $Padding[1] } { $PadLeft }
-    $PadBottom = Use-Ternary ($Padding.Count -ge 4) { $Padding[3] } { $PadTop }
-    $Text = ( "`n" * $PadTop ) + $Text + ( "`n" * $PadBottom )
+    } else { $Text = ( " " * $MarginLeft) + $Text + ( " " * $MarginRight) }
+    $Text = ( "`n" * $MarginTop ) + $Text + ( "`n" * $MarginBottom )
 
 
     # Write-Host mit Parameter-Hashtable aufrufen
@@ -406,15 +328,24 @@ function Write-Text {
 }
 function Write-Line {
     param (
-        [int]$Width = $host.UI.RawUI.BufferSize.Width,
         [string]$Character = "-",
         [string]$ForegroundColor = "DarkRed",
-        [switch]$Padding
+        [int]$Width = $host.UI.RawUI.BufferSize.Width,
+        [int[]]$Margin = 1
     )
-    $Line = ""+($Character * $Width)+""
-    if ( $Padding ) { $Line = "`n$Line`n" }
 
-    Write-Host $Line -ForegroundColor $ForegroundColor
+    $MarginTop = if ( $Margin.Count -ge 1 ) { $Margin[0] } else { 0 }
+    $MarginRight = if ( $Margin.Count -ge 2 ) { $Margin[1] } else { $MarginTop }
+    $MarginBottom = if ( $Margin.Count -ge 3 ) { $Margin[2] } else { $MarginTop }
+    $MarginLeft = if ( $Margin.Count -ge 4 ) { $Margin[3] } else { $MarginRight }
+    $LineWidth = $Width - $MarginLeft - $MarginRight
+
+    Write-Host ("`n" * $MarginTop) -NoNewline
+    Write-Host (" " * $MarginLeft) -NoNewline
+    Write-Host ($Character * $LineWidth) -ForegroundColor $ForegroundColor -NoNewline
+    Write-Host (" " * $MarginRight) -NoNewline
+    Write-Host ("`n" * $MarginBottom)
+
 }
 function Write-Space {
     param (
@@ -453,44 +384,86 @@ function Get-ApplicationInfo {
     # Programmordner abfragen (Quellordner)
     Write-Text "Wählen Sie den Programmordner aus:" DarkCyan -NoNewline
     $Context.sourcePath = Get-Folder -Description "Programmordner:" -FullName
-    Write-Text $Context.sourcePath -Padding @(1,0,0,0)
+    Write-Text $Context.sourcePath -Margin 0,0,0,1
 
     # Startdatei (EXE) auswählen
     Write-Text "Startdatei (EXE) auswählen:" DarkCyan -NoNewline
     $Context.AppNameExe = Get-File -Title "Startdatei (EXE) auswählen:" -InitialDirectory $Context.sourcePath -Name
-    Write-Text $Context.AppNameExe -Padding @(1,0,0,0)
+    Write-Text $Context.AppNameExe -Margin 0,0,0,1
     
     # Speicherort für die portable Anwendung auswählen (Zielordner)
     Write-Text "Zielordner für die portable Anwendung auswählen:" DarkCyan -NoNewline
     $Context.destinationPath = Get-Folder -Description "Zielordner:" -FullName
-    Write-Text $Context.destinationPath -Padding @(1,0,0,1)
+    Write-Text $Context.destinationPath -Margin 0,0,1,1
 
     # Splash-Bild auswählen
     Write-Text "Splash-Bild auswählen:" Cyan -NoNewline
     $Context.sourceSplashFile = Get-File -Title "Splash-Bild auswählen:" -InitialDirectory $Context.sourcePath -FullName
-    Write-Text $Context.sourceSplashFile -Padding @(1,0,0,1)
+    Write-Text $Context.sourceSplashFile -Margin 0,0,1,1
 
     # Anwendungsname abfragen
     $Context.AppName = Read-CleanString -Prompt "Anwendungsname:" -SkipSpaces
     $Context.AppID = Read-CleanString -Prompt "Anwendungs-ID:" -Default $Context.AppName
     
-    Write-Line -Padding
+    Write-Line
 
     return $Context
 }
 
 
+#######
+function Update-DesktopIni{
+    # Header
+    Set-Header "Desktop.ini erstellen/bearbeiten"
+
+    # Ordner auswählen
+    Write-Text "Ordner:" Yellow -NoNewline
+    $FolderPath = Get-Folder -Description "Wählen den Ordner aus:" -FullName
+    Write-Text $FolderPath
+
+    # Icon-Quelle auswählen
+    Write-Text "Icon-Quelle:" Yellow -NoNewline
+    $IconFile   = Get-File -Title "Pfad zur Icon-Datei:" -InitialDirectory $FolderPath -FullName
+    Write-Text $IconFile
+
+    # Dateiinhalt erstellen und speichern
+    Write-Host
+    Write-Results "Erstelle:" "desktop.ini" -Colors @("Red","Yellow")
+    $ExportFile = Join-Path -Path $FolderPath -ChildPath "desktop.ini"
+    $IconExtension = [System.IO.Path]::GetExtension($IconFile)
+    $IconResource = if ( $IconExtension -eq ".ico" ) { $IconFile } else { "$IconFile,0" }
+    $FileContent = @"
+[.ShellClassInfo]
+IconResource=$IconResource
+
+[ViewState]
+FolderType=Generic
+"@
+    Set-Content -Path $ExportFile -Encoding Unicode -Value $FileContent -Force
+
+    # Attribute setzen: versteckt und System
+    attrib +h +s $ExportFile
+    attrib +r $FolderPath
+
+    # Abschlussmeldung
+    Write-Text "Fertig!" Green
+    Write-Text "Die desktop.ini wurde erstellt unter:" Yellow -NoNewline
+    Write-Text $FolderPath 
+    Get-Key
+}
+
 # HEADER & USERINPUT ###############################################################################
 
 while($true){
-    Set-Header -Text "$Name v$Version"
+    Set-Header "$Name v$Version"
 
     Write-Text "1) PortableApps.com Anwendung erstellen" Yellow
     Write-Text "2) Desktop.ini erstellen/bearbeiten" Yellow
-    Write-Text "q) Beenden" Red -Padding @(2,1,0,1)
+    Write-Text "q) Beenden" Red -Margin 1,0,1,2
+    Write-Line
     
     $answer = Read-KeyString "Wählen Sie eine Option (1/2/q):" -ValidKeys @('1','2','q')
-    Write-Line -Padding
+    Write-Line
     switch ($answer) {
         '1' { 
             Set-Header "Portable Anwendung erstellen"
@@ -499,10 +472,10 @@ while($true){
             $Context = Set-PortableApp -Context (Get-ApplicationInfo $Context)
 
             # Abschlussmeldung
-            Write-Text "Fertig!" Green -Padding @(2,0,0,1)
-            Write-Text $Context.AppName -ForegroundColor Cyan -Padding @(2,0,0,1) -NoNewline
+            Write-Text "Fertig!" Green -Margin 0,0,1,2
+            Write-Text $Context.AppName -ForegroundColor Cyan -Margin 0,0,1,2 -NoNewline
             Write-Text " wurde erfolgreich portabel gemacht."
-            Write-Line -Padding
+            Write-Line
             
 
             # PortableApps.com Launcher Generator
@@ -514,22 +487,7 @@ while($true){
             
             Start-Sleep -Seconds 2
         }
-        '2' { 
-            Set-Header "Desktop.ini erstellen/bearbeiten"
-
-            # Benutzereingaben für desktop.ini
-            Write-Text "Ordner:" Yellow -NoNewline
-            $folderPath = Get-Folder -Description "Wählen den Ordner aus:"
-            Write-Text "Icon-Quelle:" Yellow -NoNewline -Padding @(2,0,0,1)
-            $iconFile   = Get-File -Title "Pfad zur EXE-Datei für das Icon:" -FullName
-    
-            Write-Results "Erstelle:" "desktop.ini" -Colors @("Red","Yellow")
-            New-DesktopIni -IconFile $iconFile -ExportPath $folderPath
-            Write-Text "Fertig!" Green -Padding @(2,1,0,1)
-            Write-Text "Die desktop.ini wurde erstellt unter:" Yellow -Padding @(2,0,0,1) -NoNewline
-            Write-Text $folderPath 
-            Pause -Silent > $null
-        }
+        '2' { Update-DesktopIni }
         'q' { exit }
         Default {}
     }
