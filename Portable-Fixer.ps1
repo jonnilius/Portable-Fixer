@@ -86,25 +86,26 @@ function Set-Header {
     param (
         [string]$Text,
         [string]$Color = "DarkRed",
-        [int[]]$Padding = 1
+        [int[]]$Margin = 1
     )
     # Padding
-    $PadLeft    = Use-Ternary ($Padding.Count -ge 1) { $Padding[0] } { 0 }
-    $PadTop     = Use-Ternary ($Padding.Count -ge 2) { $Padding[1] } { $PadLeft }
-    $PadRight   = Use-Ternary ($Padding.Count -ge 3) { $Padding[2] } { $PadLeft }
-    $PadBottom  = Use-Ternary ($Padding.Count -ge 4) { $Padding[3] } { $PadTop }
+    $MarginTop    = if ($Margin.Count -ge 1) { $Margin[0] } else { 0 }
+    $MarginRight  = if ($Margin.Count -ge 2) { $Margin[1] } else { $MarginTop }
+    $MarginBottom = if ($Margin.Count -ge 3) { $Margin[2] } else { $MarginTop }
+    $MarginLeft   = if ($Margin.Count -ge 4) { $Margin[3] } else { $MarginRight }
     
     # Width
-    $Width = $host.UI.RawUI.BufferSize.Width - $PadLeft - $PadRight
-    $headerLine = (" " * $PadLeft) + ("=" * $Width) + (" " * $PadRight)
+    $Width      = $host.UI.RawUI.BufferSize.Width
+    $innerWidth = $Width - $MarginLeft - $MarginRight
+    $Line       = (" " * $MarginLeft) + ("=" * $innerWidth) + (" " * $MarginRight)
 
 
     Clear-Host
-    Write-Host ("`n" * $PadTop) -NoNewline
-    Write-Host $headerLine -ForegroundColor $Color
-    Write-Host ($Text.PadLeft(($Width + $Text.Length) / 2).PadRight($Width))
-    Write-Host $headerLine -ForegroundColor $Color
-    Write-Host ("`n" * $PadBottom)
+    Write-Host ("`n" * $MarginTop) -NoNewline
+    Write-Host $Line -ForegroundColor $Color
+    Write-Host ($Text.PadLeft(($innerWidth + $Text.Length) / 2).PadRight($innerWidth))
+    Write-Host $Line -ForegroundColor $Color
+    Write-Host ("`n" * $MarginBottom)
 }
 function Set-PortableApp {
     param (
