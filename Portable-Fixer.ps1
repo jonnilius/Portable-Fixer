@@ -408,8 +408,7 @@ function Get-ApplicationInfo {
 
 #######
 function Update-DesktopIni{
-    # Header
-    Set-Header "Desktop.ini erstellen/bearbeiten"
+    Set-Header "Desktop.ini ersettzen/aktualisieren"
 
     # Ordner auswählen
     Write-Text "Ordner:" Yellow -NoNewline
@@ -446,6 +445,40 @@ FolderType=Generic
     Write-Text $FolderPath 
     Read-Key -Silent
 }
+function Update-SplashImage {
+    Set-Header "Splash-Bild austauschen"
+
+    # Ordner auswählen
+    Write-Text "PortableApps.com Ordner:" Yellow -NoNewline
+    $FolderPath = Get-Folder -Description "Wählen den Ordner aus:" -FullName
+    Write-Text $FolderPath
+
+    # Splash-Bild auswählen
+    if ( Test-Path (Join-Path $PSScriptRoot "Splash.jpg") ) {
+        $SourceFile = Join-Path $PSScriptRoot "Splash.jpg"
+        Write-Text "Standard Splash-Bild gefunden:" Green -NoNewline
+        Write-Text $SourceFile
+        if ( Read-Key -Text "Standard Splash.jpg verwenden? (Y/N)" -YesNo ) {
+            $SourceFile = Join-Path $PSScriptRoot "Splash.jpg"
+        } else {
+            Write-Text "Neues Splash-Bild auswählen:" Yellow -NoNewline
+            $SourceFile = Get-File -Title "Neues Splash-Bild auswählen:" -InitialDirectory $FolderPath -FullName
+            Write-Text $SourceFile
+        }
+    } else {
+        Write-Text "Neues Splash-Bild auswählen:" Yellow -NoNewline
+        $SourceFile = Get-File -Title "Neues Splash-Bild auswählen:" -InitialDirectory $FolderPath -FullName
+        Write-Text $SourceFile
+    }
+    
+    # Splash-Bild kopieren und überschreiben
+    $DestinationFile = Join-Path -Path $FolderPath -ChildPath "App\AppInfo\Launcher\Splash.jpg"
+    Copy-Item -Path $SourceFile -Destination $DestinationFile -Force
+
+    # Abschlussmeldung
+    Write-Text "Fertig!" Green
+    Read-Key -Silent
+}
 
 # HEADER & USERINPUT ###############################################################################
 
@@ -454,10 +487,11 @@ while($true){
 
     Write-Text "1) PortableApps.com Anwendung erstellen" Yellow
     Write-Text "2) Desktop.ini erstellen/bearbeiten" Yellow
+    Write-Text "3) Splash.jpg austauschen" Yellow
     Write-Text "q) Beenden" Red -Margin 1,0,1,2
     Write-Line
     
-    $answer = Read-Key "Wählen Sie eine Option (1/2/q):" -ValidKeys @('1','2','q')
+    $answer = Read-Key "Wählen Sie eine Option (1/2/3/q):" -ValidKeys @('1','2','3','q')
     Write-Line
     switch ($answer) {
         '1' { 
@@ -483,7 +517,8 @@ while($true){
             Start-Sleep -Seconds 2
         }
         '2' { Update-DesktopIni }
-        'q' { exit }
+        '3' { Update-SplashImage }
+        'q' { exit 0 }
         Default {}
     }
 }
