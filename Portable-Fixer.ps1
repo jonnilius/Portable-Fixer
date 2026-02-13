@@ -1,6 +1,6 @@
 ﻿# Portable-Maker.ps1
 $Name = "Portable-Fixer"
-$Version = "0.1.3"
+$Version = "0.2.0"
 
 # Einstellungen
 $Context = [ordered]@{}
