@@ -452,6 +452,7 @@ function Update-SplashImage {
     Write-Text "PortableApps.com Ordner:" Yellow -NoNewline
     $FolderPath = Get-Folder -Description "Wählen den Ordner aus:" -FullName
     Write-Text $FolderPath
+    
 
     # Splash-Bild auswählen
     if ( Test-Path (Join-Path $PSScriptRoot "Splash.jpg") ) {
@@ -471,15 +472,37 @@ function Update-SplashImage {
         $SourceFile = Get-File -Title "Neues Splash-Bild auswählen:" -InitialDirectory $FolderPath -FullName
         Write-Text $SourceFile
     }
+
+    # Paths überprüfen
+    $PortableName = Split-Path -Path $FolderPath -Leaf
+    $SplashDir = Join-Path -Path $FolderPath -ChildPath "App\AppInfo\Launcher"
+    $SplashFile = Join-Path -Path $SplashDir -ChildPath "Splash.jpg"
+    $OtherSplashDir = Join-Path -Path $FolderPath -ChildPath "Other\Source"
+    $OtherSplashFile = Join-Path -Path $OtherSplashDir -ChildPath "$PortableName.jpg"
+    $OtherSplashFileBak = Join-Path -Path $OtherSplashDir -ChildPath "$PortableName.jpg.bak"
+    if (Test-Path $OtherSplashFile) { $DestinationFile = $OtherSplashFile }
+    else { if (-not (Test-Path $SplashFile)) { New-Item -Path $SplashDir -ItemType Directory -Force | Out-Null } $DestinationFile = $SplashFile }
     
-    # Splash-Bild kopieren und überschreiben
-    New-Item -Path (Join-Path -Path $FolderPath -ChildPath "App\AppInfo\Launcher") -ItemType Directory -Force | Out-Null
-    $DestinationFile = Join-Path -Path $FolderPath -ChildPath "App\AppInfo\Launcher\Splash.jpg"
+    # Kopieren
+    if (Test-Path $OtherSplashFileBak) { Remove-Item -Path $OtherSplashFileBak -Force }
+    if (Test-Path $OtherSplashFile) { Rename-Item -Path $OtherSplashFile -NewName "$PortableName.jpg.bak" -Force }
     Copy-Item -Path $SourceFile -Destination $DestinationFile -Force
 
     # Abschlussmeldung
     Write-Text "Fertig!" Green
+    if ( Read-Key "Möchten Sie das neue Splash-Bild testen? (Y/N)" -YesNo ) {
+        Start-Process -FilePath (Join-Path -Path $FolderPath -ChildPath "$PortableName.exe")
+    }
     Start-Sleep -Seconds 3
+
+    # Fertigkeitsabfrage
+    if ( -not (Read-Key -Text "Ist das neue Splash-Bild zu sehen? (Y/N)" -YesNo) ) {
+        Write-Text "Splash-Bild zurücksetzen..." Red
+        if (Test-Path $OtherSplashFileBak) { Move-Item -Path $OtherSplashFileBak -Destination $OtherSplashFile -Force }
+        else { Remove-Item -Path $SplashFile -Force }
+
+
+    }
 }
 
 # HEADER & USERINPUT ###############################################################################
