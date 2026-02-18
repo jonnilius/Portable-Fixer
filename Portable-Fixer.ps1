@@ -1,6 +1,6 @@
 ﻿# Portable-Maker.ps1
 $Name = "Portable-Fixer"
-$Version = "0.2.0"
+$Version = "0.2.1"
 
 # Einstellungen
 $Context = [ordered]@{}
@@ -472,6 +472,7 @@ function Update-SplashImage {
     }
     
     # Splash-Bild kopieren und überschreiben
+    New-Item -Path (Join-Path -Path $FolderPath -ChildPath "App\AppInfo\Launcher") -ItemType Directory -Force | Out-Null
     $DestinationFile = Join-Path -Path $FolderPath -ChildPath "App\AppInfo\Launcher\Splash.jpg"
     Copy-Item -Path $SourceFile -Destination $DestinationFile -Force
 
