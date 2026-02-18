@@ -460,6 +460,7 @@ function Update-SplashImage {
         Write-Text $SourceFile
         if ( Read-Key -Text "Standard Splash.jpg verwenden? (Y/N)" -YesNo ) {
             $SourceFile = Join-Path $PSScriptRoot "Splash.jpg"
+            Write-Host ""
         } else {
             Write-Text "Neues Splash-Bild auswählen:" Yellow -NoNewline
             $SourceFile = Get-File -Title "Neues Splash-Bild auswählen:" -InitialDirectory $FolderPath -FullName
@@ -478,7 +479,7 @@ function Update-SplashImage {
 
     # Abschlussmeldung
     Write-Text "Fertig!" Green
-    Read-Key -Silent
+    Start-Sleep -Seconds 3
 }
 
 # HEADER & USERINPUT ###############################################################################
