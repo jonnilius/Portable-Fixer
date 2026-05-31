@@ -4,7 +4,7 @@ $Version = "0.2.1"
 
 # Einstellungen
 $Context = [ordered]@{}
-. .\WindowsForms.ps1
+Import-Module $PSScriptRoot\WindowsForms.psm1
 
 
 function Use-Ternary {
@@ -449,9 +449,9 @@ function Update-SplashImage {
     Set-Header "Splash-Bild austauschen"
 
     # Ordner auswählen
-    Write-Text "PortableApps.com Ordner:" Yellow -NoNewline
-    $FolderPath = Get-Folder -Description "Wählen den Ordner aus:" -FullName
-    Write-Text $FolderPath
+    Write-Text "Wählen Sie in der PortableApps.com Installation, den Programmordner aus." Yellow -NoNewline
+    Write-Text "Pfad:" 
+    Write-Text (Get-Folder -Description "Wählen den Programmordner aus:" -FullName)
     
 
     # Splash-Bild auswählen
